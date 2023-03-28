@@ -1,0 +1,27 @@
+# triples for ACLED events in year 2021
+# graph depth is 2
+# ACLED event triples as well as the 2-hop triples (e.g. triples about the actors)
+
+PREFIX coy: <https://schema.coypu.org/global#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+CONSTRUCT {
+  ?e ?p ?o .
+  ?o ?p1 ?o1 .
+} WHERE {
+  # get all events in 2021
+  {
+    SELECT DISTINCT ?e WHERE {
+      graph <https://data.coypu.org/events/acled/> {
+        ?e rdf:type coy:Event ;
+           coy:hasTimestamp ?t .
+        BIND(year(?t) as ?year)
+        FILTER(?year = 2021)
+      }
+    }
+  }
+  # get the corresponding triples for each event
+  ?e ?p ?o .
+  OPTIONAL { ?o ?p1 ?o1 }
+}

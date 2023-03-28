@@ -1,0 +1,65 @@
+PREFIX coy: <https://schema.coypu.org/global#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+CONSTRUCT {
+  ?e rdf:type ?event_type ;
+    coy:hasCountryLocation ?country ;
+    coy:hasTimestamp ?dt ;
+    coy:hasActor ?actor1, ?actor2 ;
+    coy:hasFatalities ?sum_fatalities ;
+    coy:hasNumSubEvents ?num_events ;
+    .
+  ?actor1 ?p_actor1 ?o_actor1 .
+  ?actor2 ?p_actor2 ?o_actor2 .
+} WHERE {
+  {
+    SELECT ?country ?dt ?event_type
+    ?actor1 ?actor2 
+    (count(distinct ?event) as ?num_events)
+    (sum(?num_fatalities) as ?sum_fatalities)
+    (sample(?event) as ?e) 
+    WHERE {
+      BIND(<https://data.coypu.org/country/FRA> AS ?country)
+      SERVICE <cache:> {
+        graph <https://data.coypu.org/events/acled/> {
+          ?event coy:hasTimestamp ?date .
+          ?event coy:hasCountryLocation ?country .
+          ?event rdf:type ?event_type .
+          filter(year(?date) = 2021)
+          filter(?event_type not in (coy:Event, coy:Conflict))
+        }
+      }
+      graph <https://data.coypu.org/events/acled/> {
+        {
+          ?event coy:hasCountryLocation ?country ;
+                 coy:hasTimestamp ?dt ;
+                 coy:hasActor ?actor1 ;
+                 coy:hasActor ?actor2 .
+          FILTER(?actor1 != ?actor2 && str(?actor1) < str(?actor2))
+        }
+        UNION {
+          # handle the case where no second actor is available
+          {
+            ?event coy:hasCountryLocation ?country ;
+                   coy:hasTimestamp ?dt ;
+                   coy:hasActor ?actor1 
+            FILTER NOT EXISTS {
+              ?event coy:hasActor ?actor2_      
+              FILTER(?actor1 != ?actor2_)
+            }
+          }
+          BIND(?actor1 AS ?actor2)
+        }
+        ?event coy:hasFatalities ?num_fatalities .
+      }
+    }
+    group by ?country ?dt ?event_type ?actor1 ?actor2
+  }
+  LATERAL {
+    {
+      ?actor1 ?p_actor1 ?o_actor1 
+    } UNION {
+      ?actor2 ?p_actor2 ?o_actor2 
+    }
+  }
+}

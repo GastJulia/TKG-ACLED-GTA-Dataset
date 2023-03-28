@@ -1,0 +1,33 @@
+# triples for ACLED events in year 2021
+# graph depth is 2
+# ACLED event triples as well as the 2-hop triples (e.g. triples about the actors)
+
+PREFIX coy: <https://schema.coypu.org/global#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+CONSTRUCT {
+  ?e a ?type .
+  ?e ?p ?o .
+  ?e coy:hasActor ?actor . ?actor ?p_actor ?o_actor .
+} WHERE {
+  {
+    SELECT DISTINCT ?e ?type WHERE {
+      graph <https://data.coypu.org/events/acled/> {
+        ?e rdf:type coy:Event ;
+           rdf:type ?type ;
+     	   coy:hasTimestamp ?t .
+        BIND(year(?t) as ?year)
+        FILTER(?year = 2021)
+        FILTER(?type not in (coy:Event, coy:Conflict)) # keep only the ACLED specific type, e.g. coy:Protest
+      }
+    }
+  }
+  
+  ?e ?p ?o
+  FILTER(?p IN (coy:hasCountryLocation, coy:hasFatalities, coy:hasTimestamp)) # only keep some properties
+  # in addtion, get the actors as well as data about the actors
+  OPTIONAL {
+  	?e coy:hasActor ?actor . ?actor ?p_actor ?o_actor
+  }
+}
